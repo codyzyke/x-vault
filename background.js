@@ -19,7 +19,9 @@ import {
   getCaptureFromHome,
   setCaptureFromHome,
   setUserStarred,
-  updateUserNotes
+  updateUserNotes,
+  exportAllData,
+  importAllData
 } from './db.js';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -149,6 +151,16 @@ async function handleMessage(message) {
     case 'SET_CAPTURE_FROM_HOME':
       await setCaptureFromHome(message.enabled);
       return { success: true };
+
+    case 'EXPORT_DATABASE':
+      return await exportAllData();
+
+    case 'IMPORT_DATABASE': {
+      const result = await importAllData(message.data, { merge: message.merge !== false });
+      const count = await getTweetCount();
+      chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
+      return { success: true, imported: result, totalCount: count };
+    }
 
     default:
       console.error('[X-Vault] Unknown message type received:', message.type, message);
