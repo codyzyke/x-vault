@@ -3,6 +3,7 @@ let selectedUser = null;
 let selectedUserData = null;
 let allSelectMode = false;
 let notesDebounce = null;
+let currentView = 'home';
 
 let toastTimer = null;
 
@@ -293,45 +294,6 @@ async function refreshCounts() {
 
 // ==================== Tweet List ====================
 
-function createTweetCard(tweet) {
-  const card = document.createElement('div');
-  card.className = 'tweet-card';
-  card.dataset.tweetId = tweet.tweetId;
-
-  let retweetHtml = '';
-  if (tweet.isRetweet && tweet.retweetedBy) {
-    retweetHtml = `<div class="retweet-badge">Reposted by @${escapeHtml(tweet.retweetedBy)}</div>`;
-  }
-
-  card.innerHTML = `
-    <label class="tweet-select">
-      <input type="checkbox" class="tweet-checkbox" value="${escapeHtml(tweet.tweetId)}">
-    </label>
-    <div class="tweet-content">
-      ${retweetHtml}
-      <div class="tweet-header">
-        <strong>${escapeHtml(tweet.displayName)}</strong>
-        <span class="handle">@${escapeHtml(tweet.handle)}</span>
-        <span class="timestamp">${formatTimestamp(tweet.timestamp)}</span>
-        <a href="${escapeHtml(tweet.url)}" target="_blank" class="tweet-link" title="Open on X">\u2197</a>
-        <button class="tweet-delete-btn" title="Delete tweet">\u00d7</button>
-      </div>
-      <div class="tweet-text">${escapeHtml(tweet.fullText)}</div>
-    </div>
-  `;
-
-  const checkbox = card.querySelector('.tweet-checkbox');
-  checkbox.addEventListener('change', () => {
-    card.classList.toggle('selected', checkbox.checked);
-  });
-
-  card.querySelector('.tweet-delete-btn').addEventListener('click', () => {
-    deleteTweetNow(tweet, card);
-  });
-
-  return card;
-}
-
 function renderTweetList(tweets) {
   currentTweets = tweets;
   allSelectMode = false;
@@ -376,23 +338,6 @@ async function selectUser(handle) {
   renderTweetList(tweets || []);
   showUserContext(handle);
 }
-
-// ==================== Search ====================
-
-let searchDebounce;
-document.getElementById('search-input').addEventListener('input', (e) => {
-  clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(async () => {
-    const query = e.target.value.trim();
-    if (query.length < 2) {
-      if (selectedUser) selectUser(selectedUser);
-      return;
-    }
-    hideUserContext();
-    const results = await sendMessage({ type: 'SEARCH_TWEETS', query, limit: 500 });
-    renderTweetList(results || []);
-  }, 300);
-});
 
 // ==================== Selection ====================
 
@@ -757,6 +702,177 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
+// ==================== View Navigation ====================
+
+function showView(viewName) {
+  currentView = viewName;
+
+  // Update nav items
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.view === viewName);
+  });
+
+  // Update views
+  document.querySelectorAll('.view').forEach(view => {
+    view.classList.toggle('active', view.id === `view-${viewName}`);
+  });
+
+  // Show/hide footer (only in users view)
+  const footer = document.getElementById('tweet-footer');
+  if (footer) {
+    footer.classList.toggle('hidden', viewName !== 'users');
+  }
+
+  // Load view-specific data
+  if (viewName === 'home') {
+    loadHomeView();
+  } else if (viewName === 'users') {
+    loadUsersView();
+  } else if (viewName === 'search') {
+    document.getElementById('search-input').focus();
+  }
+}
+
+// Navigation click handlers
+document.querySelectorAll('.nav-menu .nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    showView(item.dataset.view);
+  });
+});
+
+// ==================== Home View ====================
+
+async function loadHomeView() {
+  // Load stats
+  const count = await sendMessage({ type: 'GET_TWEET_COUNT' });
+  const users = await sendMessage({ type: 'GET_USERS' });
+
+  const totalTweets = count || 0;
+  const totalUsers = users?.length || 0;
+  const starredUsers = users?.filter(u => u.starred)?.length || 0;
+
+  document.getElementById('stat-total-tweets').textContent = totalTweets;
+  document.getElementById('stat-total-users').textContent = totalUsers;
+  document.getElementById('stat-starred-users').textContent = starredUsers;
+  document.getElementById('tweet-count').textContent = `${totalTweets} tweets`;
+
+  // Load recent tweets
+  const recentTweets = await sendMessage({ type: 'SEARCH_TWEETS', query: '', limit: 50 });
+  renderRecentTweets(recentTweets || []);
+}
+
+function renderRecentTweets(tweets) {
+  const container = document.getElementById('recent-tweets');
+  container.innerHTML = '';
+
+  if (tweets.length === 0) {
+    container.innerHTML = '<div class="empty-state">Browse a Twitter/X profile to start capturing tweets.</div>';
+    return;
+  }
+
+  // Sort by capturedAt descending
+  tweets.sort((a, b) => new Date(b.capturedAt) - new Date(a.capturedAt));
+
+  for (const tweet of tweets.slice(0, 30)) {
+    container.appendChild(createTweetCard(tweet, true));
+  }
+}
+
+function createTweetCard(tweet, isReadOnly = false) {
+  const card = document.createElement('div');
+  card.className = 'tweet-card';
+  card.dataset.tweetId = tweet.tweetId;
+
+  let retweetHtml = '';
+  if (tweet.isRetweet && tweet.retweetedBy) {
+    retweetHtml = `<div class="retweet-badge">Reposted by @${escapeHtml(tweet.retweetedBy)}</div>`;
+  }
+
+  const checkboxHtml = isReadOnly ? '' : `
+    <label class="tweet-select">
+      <input type="checkbox" class="tweet-checkbox" value="${escapeHtml(tweet.tweetId)}">
+    </label>`;
+
+  const deleteBtn = isReadOnly ? '' : `<button class="tweet-delete-btn" title="Delete tweet">\u00d7</button>`;
+
+  card.innerHTML = `
+    ${checkboxHtml}
+    <div class="tweet-content">
+      ${retweetHtml}
+      <div class="tweet-header">
+        <strong>${escapeHtml(tweet.displayName)}</strong>
+        <span class="handle">@${escapeHtml(tweet.handle)}</span>
+        <span class="timestamp">${formatTimestamp(tweet.timestamp)}</span>
+        <a href="${escapeHtml(tweet.url)}" target="_blank" class="tweet-link" title="Open on X">\u2197</a>
+        ${deleteBtn}
+      </div>
+      <div class="tweet-text">${escapeHtml(tweet.fullText)}</div>
+    </div>
+  `;
+
+  if (!isReadOnly) {
+    const checkbox = card.querySelector('.tweet-checkbox');
+    if (checkbox) {
+      checkbox.addEventListener('change', () => {
+        card.classList.toggle('selected', checkbox.checked);
+      });
+    }
+
+    const delBtn = card.querySelector('.tweet-delete-btn');
+    if (delBtn) {
+      delBtn.addEventListener('click', () => {
+        deleteTweetNow(tweet, card);
+      });
+    }
+  }
+
+  return card;
+}
+
+// ==================== Users View ====================
+
+async function loadUsersView() {
+  const users = await sendMessage({ type: 'GET_USERS' });
+  if (users && users.length > 0) {
+    renderUserList(users);
+    if (!selectedUser) {
+      selectUser(users[0].handle);
+    }
+  } else {
+    renderUserList([]);
+    document.getElementById('tweet-list').innerHTML = '<div class="empty-state">No users tracked yet.</div>';
+  }
+}
+
+// ==================== Search View ====================
+
+document.getElementById('search-input').addEventListener('input', (e) => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(async () => {
+    const query = e.target.value.trim();
+    const container = document.getElementById('search-results');
+
+    if (query.length < 2) {
+      container.innerHTML = '<div class="empty-state">Enter a search term to find tweets.</div>';
+      return;
+    }
+
+    const results = await sendMessage({ type: 'SEARCH_TWEETS', query, limit: 500 });
+    container.innerHTML = '';
+
+    if (!results || results.length === 0) {
+      container.innerHTML = '<div class="empty-state">No tweets found.</div>';
+      return;
+    }
+
+    for (const tweet of results) {
+      container.appendChild(createTweetCard(tweet, true));
+    }
+  }, 300);
+});
+
+let searchDebounce;
+
 // ==================== Init ====================
 
 async function reloadAll() {
@@ -764,17 +880,8 @@ async function reloadAll() {
   selectedUserData = null;
   hideUserContext();
 
-  const count = await sendMessage({ type: 'GET_TWEET_COUNT' });
-  document.getElementById('tweet-count').textContent = `${count || 0} tweets`;
-
-  const users = await sendMessage({ type: 'GET_USERS' });
-  if (users && users.length > 0) {
-    renderUserList(users);
-    selectUser(users[0].handle);
-  } else {
-    renderUserList([]);
-    renderTweetList([]);
-  }
+  // Load initial view
+  showView('home');
 }
 
 document.addEventListener('DOMContentLoaded', reloadAll);

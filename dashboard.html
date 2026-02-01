@@ -8,78 +8,154 @@
 </head>
 
 <body>
-  <header>
-    <div class="header-left">
-      <h1>X-Vault</h1>
-    </div>
-    <div class="header-right">
-      <button id="settings-btn" title="Settings">⚙️ Settings</button>
-      <span id="tweet-count">0 tweets</span>
-      <input type="file" id="import-file-input" accept=".json" style="display: none;">
-    </div>
-  </header>
+  <div id="app">
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar">
+      <div class="sidebar-header">
+        <h1>X-Vault</h1>
+      </div>
 
-  <div id="search-bar">
-    <input type="text" id="search-input" placeholder="Search tweets across all users...">
-  </div>
+      <ul class="nav-menu">
+        <li class="nav-item active" data-view="home">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-label">Home</span>
+        </li>
+        <li class="nav-item" data-view="users">
+          <span class="nav-icon">👥</span>
+          <span class="nav-label">Users</span>
+        </li>
+        <li class="nav-item" data-view="search">
+          <span class="nav-icon">🔍</span>
+          <span class="nav-label">Search</span>
+        </li>
+      </ul>
 
-  <div id="main">
-    <aside id="user-list"></aside>
+      <div class="sidebar-footer">
+        <button id="settings-btn" class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Settings</span>
+        </button>
+      </div>
+    </nav>
 
-    <div id="content-area">
-      <!-- User context card -->
-      <div id="user-context" class="hidden">
-        <div id="user-context-header">
-          <div id="user-context-info">
-            <span id="ctx-name"></span>
-            <span id="ctx-handle"></span>
+    <!-- Main Content -->
+    <main id="main-content">
+
+      <!-- HOME VIEW -->
+      <div id="view-home" class="view active">
+        <div class="view-header">
+          <h2>Home</h2>
+          <span id="tweet-count" class="stat-badge">0 tweets</span>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card">
+            <span class="stat-number" id="stat-total-tweets">0</span>
+            <span class="stat-label">Total Tweets</span>
           </div>
-          <div id="user-context-actions">
-            <button id="ctx-star" class="ctx-btn" title="Star/unstar user">&#9734;</button>
-            <button id="ctx-block" class="ctx-btn ctx-btn-danger" title="Block user from capture">Block</button>
-            <button id="ctx-delete" class="ctx-btn ctx-btn-danger" title="Delete user and all tweets">Delete</button>
+          <div class="stat-card">
+            <span class="stat-number" id="stat-total-users">0</span>
+            <span class="stat-label">Users Tracked</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-number" id="stat-starred-users">0</span>
+            <span class="stat-label">Starred</span>
           </div>
         </div>
-        <div id="user-context-stats">
-          <span id="ctx-tweet-count"></span>
-          <span id="ctx-date-range"></span>
+
+        <div class="section-header">
+          <h3>Recent Tweets</h3>
         </div>
-        <div id="user-notes-area">
-          <textarea id="user-notes" placeholder="Personal notes about this user..." rows="2"></textarea>
+        <section id="recent-tweets">
+          <div class="empty-state">Browse a Twitter/X profile to start capturing tweets.</div>
+        </section>
+      </div>
+
+      <!-- USERS VIEW -->
+      <div id="view-users" class="view">
+        <div class="view-header">
+          <h2>Users</h2>
+        </div>
+
+        <div class="users-layout">
+          <aside id="user-list"></aside>
+
+          <div id="user-content">
+            <!-- User context card -->
+            <div id="user-context" class="hidden">
+              <div id="user-context-header">
+                <div id="user-context-info">
+                  <span id="ctx-name"></span>
+                  <span id="ctx-handle"></span>
+                </div>
+                <div id="user-context-actions">
+                  <button id="ctx-star" class="ctx-btn" title="Star/unstar user">&#9734;</button>
+                  <button id="ctx-block" class="ctx-btn ctx-btn-danger" title="Block user from capture">Block</button>
+                  <button id="ctx-delete" class="ctx-btn ctx-btn-danger"
+                    title="Delete user and all tweets">Delete</button>
+                </div>
+              </div>
+              <div id="user-context-stats">
+                <span id="ctx-tweet-count"></span>
+                <span id="ctx-date-range"></span>
+              </div>
+              <div id="user-notes-area">
+                <textarea id="user-notes" placeholder="Personal notes about this user..." rows="2"></textarea>
+              </div>
+            </div>
+
+            <!-- LLM prompt bar -->
+            <div id="llm-bar" class="hidden">
+              <span class="llm-label">Ask LLM:</span>
+              <button class="llm-prompt" data-prompt="summarize">Summarize thinking</button>
+              <button class="llm-prompt" data-prompt="beliefs">Key beliefs</button>
+              <button class="llm-prompt" data-prompt="topics">Top topics</button>
+              <button class="llm-prompt" data-prompt="style">Writing style</button>
+              <button class="llm-prompt" data-prompt="predict">Predict opinion</button>
+              <button class="llm-prompt" data-prompt="custom">Custom...</button>
+            </div>
+
+            <section id="tweet-list">
+              <div class="empty-state">Select a user to view their tweets.</div>
+            </section>
+          </div>
         </div>
       </div>
 
-      <!-- LLM prompt bar -->
-      <div id="llm-bar" class="hidden">
-        <span class="llm-label">Ask LLM:</span>
-        <button class="llm-prompt" data-prompt="summarize">Summarize thinking</button>
-        <button class="llm-prompt" data-prompt="beliefs">Key beliefs</button>
-        <button class="llm-prompt" data-prompt="topics">Top topics</button>
-        <button class="llm-prompt" data-prompt="style">Writing style</button>
-        <button class="llm-prompt" data-prompt="predict">Predict opinion</button>
-        <button class="llm-prompt" data-prompt="custom">Custom...</button>
+      <!-- SEARCH VIEW -->
+      <div id="view-search" class="view">
+        <div class="view-header">
+          <h2>Search</h2>
+        </div>
+
+        <div id="search-bar">
+          <input type="text" id="search-input" placeholder="Search tweets across all users...">
+        </div>
+
+        <section id="search-results">
+          <div class="empty-state">Enter a search term to find tweets.</div>
+        </section>
       </div>
 
-      <section id="tweet-list">
-        <div id="empty-state">Browse a Twitter/X profile to start capturing tweets.</div>
-      </section>
-    </div>
+      <!-- Footer (for users view) -->
+      <footer id="tweet-footer" class="hidden">
+        <div class="footer-left">
+          <button id="select-all">Select All</button>
+          <button id="export-selected">Export Selected</button>
+          <button id="copy-all">Copy All</button>
+        </div>
+        <div class="footer-right">
+          <select id="export-format">
+            <option value="markdown">Markdown</option>
+            <option value="json">JSON</option>
+            <option value="text">Plain Text</option>
+          </select>
+        </div>
+      </footer>
+    </main>
   </div>
 
-  <footer>
-    <div class="footer-left">
-      <button id="select-all">Select All</button>
-      <button id="export-selected">Export Selected</button>
-      <button id="copy-all">Copy All</button>
-    </div>
-    <div class="footer-right">
-      <select id="export-format">
-        <option value="markdown">Markdown</option>
-        <option value="json">JSON</option>
-        <option value="text">Plain Text</option>
-      </select>
-    </div>
-  </footer>
+  <input type="file" id="import-file-input" accept=".json" style="display: none;">
 
   <!-- Custom prompt modal -->
   <div id="prompt-modal-overlay" class="hidden">
