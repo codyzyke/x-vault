@@ -408,21 +408,71 @@
     let likeCount = 0;
     let impressionCount = 0;
 
-    // Like count - look for the like button with aria-label
+    // Like count - find the like button group and get aria-label or inner text
     const likeBtn = article.querySelector('[data-testid="like"], [data-testid="unlike"]');
     if (likeBtn) {
+      // Try aria-label first - Twitter uses formats like "275 Likes. Like" or "Like"
       const likeLabel = likeBtn.getAttribute('aria-label') || '';
-      const likeMatch = likeLabel.match(/([\d,\.]+[KkMm]?)\s*like/i);
+      // Match patterns: "275 Likes", "1.2K Likes", "275 Like" 
+      const likeMatch = likeLabel.match(/([\d,\.]+[KkMm]?)\s*(like|likes)/i);
       if (likeMatch) {
         likeCount = parseMetricValue(likeMatch[1]);
       }
+
+      // If aria-label didn't work, try the span inside the button
+      if (likeCount === 0) {
+        const spans = likeBtn.querySelectorAll('span');
+        for (const span of spans) {
+          const text = span.textContent.trim();
+          if (/^[\d,\.]+[KkMm]?$/.test(text)) {
+            likeCount = parseMetricValue(text);
+            break;
+          }
+        }
+      }
     }
 
-    // Impressions/views - look for the analytics/views element
-    const viewsEl = article.querySelector('[data-testid="app-text-transition-container"]');
-    if (viewsEl) {
-      const viewsText = viewsEl.textContent.trim();
-      impressionCount = parseMetricValue(viewsText);
+    // Impressions/views - look for the analytics link (views are usually the last item in the action bar)
+    const viewLink = article.querySelector('a[href*="/analytics"]');
+    if (viewLink) {
+      const viewText = viewLink.textContent.trim();
+      impressionCount = parseMetricValue(viewText);
+    }
+
+    // Fallback: look in aria-label of the views icon or parent container
+    if (impressionCount === 0) {
+      const allLinks = article.querySelectorAll('a[role="link"]');
+      for (const link of allLinks) {
+        const href = link.getAttribute('href') || '';
+        // Views link typically contains /analytics or has the chart icon
+        if (href.includes('analytics')) {
+          const text = link.textContent.trim();
+          const val = parseMetricValue(text);
+          if (val > 0) {
+            impressionCount = val;
+            break;
+          }
+        }
+      }
+    }
+
+    // Final fallback: find the group with the chart/bar icon (views)
+    if (impressionCount === 0) {
+      const actionGroups = article.querySelectorAll('[role="group"]');
+      for (const group of actionGroups) {
+        const ariaLabel = group.getAttribute('aria-label') || '';
+        // Match "8,800 views" or "1.1K views"
+        const viewMatch = ariaLabel.match(/([\d,\.]+[KkMm]?)\s*view/i);
+        if (viewMatch) {
+          impressionCount = parseMetricValue(viewMatch[1]);
+          break;
+        }
+      }
+    }
+
+    // Debug logging (remove in production)
+    if (likeCount > 0 || impressionCount > 0) {
+      console.log(`[X-Vault] Metrics for tweet ${tweetId}: likes=${likeCount}, impressions=${impressionCount}`);
     }
 
     return {
