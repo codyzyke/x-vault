@@ -139,7 +139,7 @@
     // Create main button
     floatingBtn = document.createElement('div');
     floatingBtn.className = 'ts-floating-btn';
-    floatingBtn.title = 'Twitter Scrape - Click to open';
+    floatingBtn.title = 'X-Vault - Click to open';
     floatingBtn.innerHTML = `
       <svg class="ts-default-icon" viewBox="0 0 24 24">
         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l4.59-4.59L18 11l-6 6z"/>
@@ -193,7 +193,7 @@
           if (countBadge) countBadge.textContent = '0';
         }
       } catch (e) {
-        console.error('[TwitterScrape] Error toggling block:', e);
+        console.error('[X-Vault] Error toggling block:', e);
       }
     });
 
@@ -261,7 +261,7 @@
       // Ignore errors
     }
 
-    floatingBtn.title = `@${handle} - Click to open Twitter Scrape`;
+    floatingBtn.title = `@${handle} - Click to open X-Vault`;
   }
 
   // Detect current profile from URL
@@ -418,7 +418,44 @@
     };
   }
 
-  function processTweets() {
+  // Check if we should capture on current page
+  function shouldCaptureOnPage() {
+    const path = window.location.pathname;
+
+    // Always capture on specific tweet pages (/username/status/id)
+    if (path.includes('/status/')) return { capture: true, isHome: false };
+
+    // Check if we're on home page
+    if (path === '/home' || path === '/' || path === '') {
+      return { capture: false, isHome: true };
+    }
+
+    // Check if we're on a profile page (not a reserved route)
+    const reserved = ['home', 'explore', 'notifications', 'messages', 'search', 'settings', 'i', 'compose'];
+    const match = path.match(/^\/([a-zA-Z0-9_]+)/);
+    if (match && !reserved.includes(match[1].toLowerCase())) {
+      return { capture: true, isHome: false };
+    }
+
+    // Default: treat as home-like page
+    return { capture: false, isHome: true };
+  }
+
+  async function processTweets() {
+    const pageCheck = shouldCaptureOnPage();
+
+    // If on home-like page, check the setting
+    if (pageCheck.isHome) {
+      try {
+        const captureFromHome = await chrome.runtime.sendMessage({ type: 'GET_CAPTURE_FROM_HOME' });
+        if (!captureFromHome) return; // Don't capture on home if disabled
+      } catch (e) {
+        return; // Can't check setting, don't capture
+      }
+    } else if (!pageCheck.capture) {
+      return; // Don't capture on this page type
+    }
+
     const articles = document.querySelectorAll('article[data-testid="tweet"]');
     for (const article of articles) {
       const data = extractTweetData(article);

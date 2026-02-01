@@ -295,6 +295,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const count = await sendMessage({ type: 'GET_TWEET_COUNT' });
   document.getElementById('tweet-count').textContent = `${count || 0} tweets`;
 
+  // Load capture from home setting
+  const captureHomeToggle = document.getElementById('capture-home-toggle');
+  const captureFromHome = await sendMessage({ type: 'GET_CAPTURE_FROM_HOME' });
+  captureHomeToggle.checked = captureFromHome || false;
+
+  captureHomeToggle.addEventListener('change', async () => {
+    await sendMessage({ type: 'SET_CAPTURE_FROM_HOME', enabled: captureHomeToggle.checked });
+  });
+
   const users = await sendMessage({ type: 'GET_USERS' });
   if (users && users.length > 0) {
     renderUserList(users);

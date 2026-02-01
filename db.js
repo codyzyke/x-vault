@@ -87,6 +87,16 @@ export async function isBlocked(handle) {
   return blocked.includes(handle);
 }
 
+// --- Capture settings ---
+
+export async function getCaptureFromHome() {
+  return getSetting('captureFromHome', false);
+}
+
+export async function setCaptureFromHome(enabled) {
+  await setSetting('captureFromHome', enabled);
+}
+
 // --- Starred users ---
 
 export async function getStarredUsers() {

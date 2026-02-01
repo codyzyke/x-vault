@@ -1,4 +1,4 @@
-console.log('[TwitterScrape] Background service worker loaded at', new Date().toISOString());
+console.log('[X-Vault] Background service worker loaded at', new Date().toISOString());
 
 import {
   storeTweet,
@@ -15,13 +15,15 @@ import {
   unblockUser,
   getBlockedUsers,
   isBlocked,
+  getCaptureFromHome,
+  setCaptureFromHome,
   setUserStarred,
   updateUserNotes
 } from './db.js';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message).then(sendResponse).catch((err) => {
-    console.error('[TwitterScrape] Error handling message:', message.type, err);
+    console.error('[X-Vault] Error handling message:', message.type, err);
     sendResponse({ error: err.message });
   });
   return true;
@@ -81,15 +83,15 @@ async function handleMessage(message) {
       return await getAllTweetsForUser(message.handle);
 
     case 'DELETE_USER': {
-      console.log('[TwitterScrape] DELETE_USER called for:', message.handle);
+      console.log('[X-Vault] DELETE_USER called for:', message.handle);
       try {
         await deleteUserAndTweets(message.handle);
         const count = await getTweetCount();
         chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
-        console.log('[TwitterScrape] DELETE_USER success, remaining tweets:', count);
+        console.log('[X-Vault] DELETE_USER success, remaining tweets:', count);
         return { deleted: true, totalCount: count };
       } catch (err) {
-        console.error('[TwitterScrape] DELETE_USER failed:', err);
+        console.error('[X-Vault] DELETE_USER failed:', err);
         return { error: err.message, deleted: false };
       }
     }
@@ -138,8 +140,15 @@ async function handleMessage(message) {
       return { opened: true };
     }
 
+    case 'GET_CAPTURE_FROM_HOME':
+      return await getCaptureFromHome();
+
+    case 'SET_CAPTURE_FROM_HOME':
+      await setCaptureFromHome(message.enabled);
+      return { success: true };
+
     default:
-      console.error('[TwitterScrape] Unknown message type received:', message.type, message);
+      console.error('[X-Vault] Unknown message type received:', message.type, message);
       return { error: 'Unknown message type' };
   }
 }

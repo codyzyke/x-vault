@@ -57,6 +57,24 @@ header h1 {
   background: #0c8de4;
 }
 
+.toggle-setting {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  color: #657786;
+}
+
+.toggle-setting input[type="checkbox"] {
+  accent-color: #1DA1F2;
+  cursor: pointer;
+}
+
+.toggle-label {
+  user-select: none;
+}
+
 #search-bar {
   padding: 8px 14px;
   border-bottom: 1px solid #e1e8ed;
