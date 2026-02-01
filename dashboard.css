@@ -4,7 +4,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
 }
@@ -18,7 +19,9 @@ body {
   background: #f5f8fa;
 }
 
-.hidden { display: none !important; }
+.hidden {
+  display: none !important;
+}
 
 /* Header */
 header {
@@ -182,8 +185,9 @@ header h1 {
 }
 
 .user-item.active .user-actions button {
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.7);
 }
+
 .user-item.active .user-actions button:hover {
   color: #fff;
 }
@@ -221,11 +225,11 @@ header h1 {
 }
 
 .user-item.active .user-avatar {
-  border: 2px solid rgba(255,255,255,0.5);
+  border: 2px solid rgba(255, 255, 255, 0.5);
 }
 
 .user-item.active .avatar-placeholder {
-  color: rgba(255,255,255,0.8);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .user-handle {
@@ -566,17 +570,19 @@ footer select {
 }
 
 /* Modal */
-#modal-overlay, #prompt-modal-overlay {
+#modal-overlay,
+#prompt-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
 }
 
-#modal, #prompt-modal {
+#modal,
+#prompt-modal {
   background: #fff;
   border-radius: 16px;
   width: 420px;
@@ -584,10 +590,11 @@ footer select {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
 }
 
-#modal-header, #prompt-modal-header {
+#modal-header,
+#prompt-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -595,12 +602,14 @@ footer select {
   border-bottom: 1px solid #e1e8ed;
 }
 
-#modal-header h2, #prompt-modal-header h2 {
+#modal-header h2,
+#prompt-modal-header h2 {
   font-size: 16px;
   font-weight: 700;
 }
 
-#modal-close, #prompt-modal-close {
+#modal-close,
+#prompt-modal-close {
   background: none;
   border: none;
   font-size: 22px;
@@ -609,7 +618,8 @@ footer select {
   line-height: 1;
 }
 
-#modal-body, #prompt-modal-body {
+#modal-body,
+#prompt-modal-body {
   padding: 16px 20px;
   overflow-y: auto;
 }
@@ -708,6 +718,142 @@ footer select {
 
 #custom-prompt-copy:hover {
   background: #0c8de4;
+}
+
+/* Settings Modal */
+#settings-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#settings-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 420px;
+  max-height: 70vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+#settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e1e8ed;
+}
+
+#settings-modal-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+#settings-modal-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #657786;
+  line-height: 1;
+}
+
+#settings-modal-body {
+  padding: 20px;
+}
+
+.settings-section {
+  margin-bottom: 20px;
+}
+
+.settings-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #14171a;
+  margin-bottom: 12px;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.settings-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #1DA1F2;
+  cursor: pointer;
+}
+
+.settings-hint {
+  font-size: 12px;
+  color: #657786;
+  margin: 12px 0 8px;
+}
+
+.threshold-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.threshold-row label {
+  font-size: 13px;
+  color: #14171a;
+}
+
+.threshold-row input[type="number"] {
+  width: 100px;
+  padding: 6px 10px;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: right;
+  outline: none;
+}
+
+.threshold-row input[type="number"]:focus {
+  border-color: #1DA1F2;
+}
+
+#settings-save-btn {
+  width: 100%;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 20px;
+  background: #1DA1F2;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#settings-save-btn:hover {
+  background: #0c8de4;
+}
+
+#settings-btn {
+  padding: 5px 12px;
+  border: 1px solid #e1e8ed;
+  border-radius: 16px;
+  background: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#settings-btn:hover {
+  border-color: #1DA1F2;
 }
 
 /* Toast */

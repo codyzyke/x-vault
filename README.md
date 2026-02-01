@@ -13,7 +13,9 @@ Browse any Twitter/X profile, tweets are captured automatically. Click the exten
 ### Capture Control
 - **Profile pages** — always captured automatically
 - **Individual tweets** — always captured when you open a specific tweet
-- **Home feed** — disabled by default (toggle in popup settings)
+- **Home feed** — configurable in Settings (⚙️ in dashboard)
+  - Set minimum likes threshold (e.g., only capture tweets with 50+ likes)
+  - Set minimum impressions threshold
 
 ## Install
 

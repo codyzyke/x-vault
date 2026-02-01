@@ -144,14 +144,34 @@ export async function isBlocked(handle) {
   });
 }
 
-// --- Capture settings ---
+// --- Home Feed Settings ---
 
+const DEFAULT_HOME_FEED_SETTINGS = {
+  enabled: false,
+  minLikes: 0,
+  minImpressions: 0
+};
+
+export async function getHomeFeedSettings() {
+  return getSetting('homeFeedSettings', DEFAULT_HOME_FEED_SETTINGS);
+}
+
+export async function setHomeFeedSettings(settings) {
+  await setSetting('homeFeedSettings', {
+    ...DEFAULT_HOME_FEED_SETTINGS,
+    ...settings
+  });
+}
+
+// Legacy compatibility
 export async function getCaptureFromHome() {
-  return getSetting('captureFromHome', false);
+  const settings = await getHomeFeedSettings();
+  return settings.enabled;
 }
 
 export async function setCaptureFromHome(enabled) {
-  await setSetting('captureFromHome', enabled);
+  const current = await getHomeFeedSettings();
+  await setHomeFeedSettings({ ...current, enabled });
 }
 
 // --- Starred users ---

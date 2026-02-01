@@ -713,6 +713,54 @@ document.getElementById('block-add-btn').addEventListener('click', async () => {
   await reloadAll();
 });
 
+// ==================== Settings Modal ====================
+
+document.getElementById('settings-btn').addEventListener('click', async () => {
+  // Load current settings
+  const settings = await sendMessage({ type: 'GET_HOME_FEED_SETTINGS' });
+
+  const enabledCheckbox = document.getElementById('home-capture-enabled');
+  const thresholdsDiv = document.getElementById('home-capture-thresholds');
+  const minLikesInput = document.getElementById('min-likes');
+  const minImpressionsInput = document.getElementById('min-impressions');
+
+  enabledCheckbox.checked = settings?.enabled || false;
+  minLikesInput.value = settings?.minLikes || 0;
+  minImpressionsInput.value = settings?.minImpressions || 0;
+
+  // Show/hide thresholds based on enabled state
+  thresholdsDiv.classList.toggle('hidden', !enabledCheckbox.checked);
+
+  document.getElementById('settings-modal-overlay').classList.remove('hidden');
+});
+
+// Toggle threshold visibility when checkbox changes
+document.getElementById('home-capture-enabled').addEventListener('change', (e) => {
+  document.getElementById('home-capture-thresholds').classList.toggle('hidden', !e.target.checked);
+});
+
+document.getElementById('settings-modal-close').addEventListener('click', () => {
+  document.getElementById('settings-modal-overlay').classList.add('hidden');
+});
+
+document.getElementById('settings-modal-overlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+});
+
+document.getElementById('settings-save-btn').addEventListener('click', async () => {
+  const enabled = document.getElementById('home-capture-enabled').checked;
+  const minLikes = parseInt(document.getElementById('min-likes').value, 10) || 0;
+  const minImpressions = parseInt(document.getElementById('min-impressions').value, 10) || 0;
+
+  await sendMessage({
+    type: 'SET_HOME_FEED_SETTINGS',
+    settings: { enabled, minLikes, minImpressions }
+  });
+
+  document.getElementById('settings-modal-overlay').classList.add('hidden');
+  showToast('Settings saved');
+});
+
 // ==================== Real-time Updates ====================
 
 chrome.runtime.onMessage.addListener((message) => {

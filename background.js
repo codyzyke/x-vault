@@ -1,5 +1,10 @@
 console.log('[X-Vault] Background service worker loaded at', new Date().toISOString());
 
+// Open dashboard when extension icon is clicked
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+});
+
 import {
   storeTweet,
   storeUser,
@@ -18,6 +23,8 @@ import {
   isBlocked,
   getCaptureFromHome,
   setCaptureFromHome,
+  getHomeFeedSettings,
+  setHomeFeedSettings,
   setUserStarred,
   updateUserNotes,
   exportAllData,
@@ -150,6 +157,13 @@ async function handleMessage(message) {
 
     case 'SET_CAPTURE_FROM_HOME':
       await setCaptureFromHome(message.enabled);
+      return { success: true };
+
+    case 'GET_HOME_FEED_SETTINGS':
+      return await getHomeFeedSettings();
+
+    case 'SET_HOME_FEED_SETTINGS':
+      await setHomeFeedSettings(message.settings);
       return { success: true };
 
     case 'EXPORT_DATABASE':

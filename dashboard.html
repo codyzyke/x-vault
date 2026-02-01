@@ -19,6 +19,7 @@
         <span class="cleanup-label">or fewer</span>
         <button id="cleanup-btn">Clean up</button>
       </div>
+      <button id="settings-btn" title="Settings">⚙️</button>
       <button id="export-db-btn" title="Export database backup">Export</button>
       <button id="import-db-btn" title="Import database backup">Import</button>
       <input type="file" id="import-file-input" accept=".json" style="display: none;">
@@ -117,6 +118,37 @@
       <div id="prompt-modal-body">
         <textarea id="custom-prompt-input" placeholder="Type your question about this user..." rows="4"></textarea>
         <button id="custom-prompt-copy">Copy with tweets</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settings-modal-overlay" class="hidden">
+    <div id="settings-modal">
+      <div id="settings-modal-header">
+        <h2>Settings</h2>
+        <button id="settings-modal-close">&times;</button>
+      </div>
+      <div id="settings-modal-body">
+        <div class="settings-section">
+          <h3>Home Feed Capture</h3>
+          <label class="settings-toggle">
+            <input type="checkbox" id="home-capture-enabled">
+            <span>Capture tweets from home feed</span>
+          </label>
+          <div id="home-capture-thresholds" class="hidden">
+            <p class="settings-hint">Only capture tweets that meet these thresholds:</p>
+            <div class="threshold-row">
+              <label for="min-likes">Minimum likes</label>
+              <input type="number" id="min-likes" min="0" value="0" placeholder="0">
+            </div>
+            <div class="threshold-row">
+              <label for="min-impressions">Minimum impressions</label>
+              <input type="number" id="min-impressions" min="0" value="0" placeholder="0">
+            </div>
+          </div>
+        </div>
+        <button id="settings-save-btn">Save Settings</button>
       </div>
     </div>
   </div>

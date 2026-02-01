@@ -404,6 +404,27 @@
       }
     }
 
+    // Extract engagement metrics (likes, impressions)
+    let likeCount = 0;
+    let impressionCount = 0;
+
+    // Like count - look for the like button with aria-label
+    const likeBtn = article.querySelector('[data-testid="like"], [data-testid="unlike"]');
+    if (likeBtn) {
+      const likeLabel = likeBtn.getAttribute('aria-label') || '';
+      const likeMatch = likeLabel.match(/([\d,\.]+[KkMm]?)\s*like/i);
+      if (likeMatch) {
+        likeCount = parseMetricValue(likeMatch[1]);
+      }
+    }
+
+    // Impressions/views - look for the analytics/views element
+    const viewsEl = article.querySelector('[data-testid="app-text-transition-container"]');
+    if (viewsEl) {
+      const viewsText = viewsEl.textContent.trim();
+      impressionCount = parseMetricValue(viewsText);
+    }
+
     return {
       tweetId,
       handle,
@@ -414,7 +435,9 @@
       avatarUrl,
       capturedAt: new Date().toISOString(),
       isRetweet,
-      retweetedBy
+      retweetedBy,
+      likeCount,
+      impressionCount
     };
   }
 
@@ -441,16 +464,48 @@
     return { capture: false, isHome: true };
   }
 
+  // Parse values like "1.2K", "5M", "123" into numbers
+  function parseMetricValue(str) {
+    if (!str) return 0;
+    str = str.replace(/,/g, '').trim();
+    const match = str.match(/^([\d.]+)([KkMm])?$/);
+    if (!match) return 0;
+    let num = parseFloat(match[1]);
+    if (match[2]) {
+      const suffix = match[2].toUpperCase();
+      if (suffix === 'K') num *= 1000;
+      else if (suffix === 'M') num *= 1000000;
+    }
+    return Math.round(num);
+  }
+
+  // Home feed settings cache (refreshed periodically)
+  let homeFeedSettingsCache = null;
+  let homeFeedSettingsLastFetch = 0;
+  const SETTINGS_CACHE_TTL = 5000; // 5 seconds
+
+  async function getHomeFeedSettingsCached() {
+    const now = Date.now();
+    if (!homeFeedSettingsCache || now - homeFeedSettingsLastFetch > SETTINGS_CACHE_TTL) {
+      try {
+        homeFeedSettingsCache = await chrome.runtime.sendMessage({ type: 'GET_HOME_FEED_SETTINGS' });
+        homeFeedSettingsLastFetch = now;
+      } catch (e) {
+        return null;
+      }
+    }
+    return homeFeedSettingsCache;
+  }
+
   async function processTweets() {
     const pageCheck = shouldCaptureOnPage();
+    let homeFeedSettings = null;
 
     // If on home-like page, check the setting
     if (pageCheck.isHome) {
-      try {
-        const captureFromHome = await chrome.runtime.sendMessage({ type: 'GET_CAPTURE_FROM_HOME' });
-        if (!captureFromHome) return; // Don't capture on home if disabled
-      } catch (e) {
-        return; // Can't check setting, don't capture
+      homeFeedSettings = await getHomeFeedSettingsCached();
+      if (!homeFeedSettings || !homeFeedSettings.enabled) {
+        return; // Don't capture on home if disabled
       }
     } else if (!pageCheck.capture) {
       return; // Don't capture on this page type
@@ -462,6 +517,15 @@
       if (!data || processedIds.has(data.tweetId)) continue;
 
       processedIds.add(data.tweetId);
+
+      // Apply threshold filters on home feed
+      if (pageCheck.isHome && homeFeedSettings) {
+        const minLikes = homeFeedSettings.minLikes || 0;
+        const minImpressions = homeFeedSettings.minImpressions || 0;
+
+        if (minLikes > 0 && data.likeCount < minLikes) continue;
+        if (minImpressions > 0 && data.impressionCount < minImpressions) continue;
+      }
 
       chrome.runtime.sendMessage({
         type: 'STORE_TWEET',
