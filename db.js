@@ -202,37 +202,80 @@ export async function deleteTweet(tweetId) {
 
 // --- Users ---
 
-export async function storeUser(user) {
+// Increment tweet count by delta (use 1 for new tweet, -1 for delete)
+export async function adjustUserTweetCount(handle, delta) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('users', 'readwrite');
+    const store = tx.objectStore('users');
+    const getReq = store.get(handle);
+
+    getReq.onsuccess = () => {
+      if (!getReq.result) {
+        resolve(null); // User doesn't exist
+        return;
+      }
+      const record = { ...getReq.result };
+      record.tweetCount = Math.max(0, (record.tweetCount || 0) + delta);
+      const putReq = store.put(record);
+      putReq.onsuccess = () => resolve(record);
+      putReq.onerror = (e) => reject(e.target.error);
+    };
+    getReq.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// Store or update user. If skipCount is true, preserves existing tweetCount (O(1)).
+// If skipCount is false or user is new, recounts tweets (O(log n + k)).
+export async function storeUser(user, { skipCount = false } = {}) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(['users', 'tweets'], 'readwrite');
     const userStore = tx.objectStore('users');
     const tweetStore = tx.objectStore('tweets');
 
-    const index = tweetStore.index('byUser');
-    const countReq = index.count(IDBKeyRange.only(user.handle));
+    const getReq = userStore.get(user.handle);
+    getReq.onsuccess = () => {
+      const existing = getReq.result || {};
+      const isNewUser = !getReq.result;
 
-    countReq.onsuccess = () => {
-      // Preserve existing starred state
-      const getReq = userStore.get(user.handle);
-      getReq.onsuccess = () => {
-        const existing = getReq.result || {};
+      // Only count tweets if: new user OR explicitly requested
+      if (!skipCount || isNewUser) {
+        const index = tweetStore.index('byUser');
+        const countReq = index.count(IDBKeyRange.only(user.handle));
+
+        countReq.onsuccess = () => {
+          const record = {
+            handle: user.handle,
+            displayName: user.displayName || existing.displayName || '',
+            avatarUrl: user.avatarUrl || existing.avatarUrl || '',
+            lastSeen: user.lastSeen || existing.lastSeen,
+            tweetCount: countReq.result,
+            starred: existing.starred || false,
+            notes: existing.notes || ''
+          };
+          const putReq = userStore.put(record);
+          putReq.onsuccess = () => resolve(record);
+          putReq.onerror = (e) => reject(e.target.error);
+        };
+        countReq.onerror = (e) => reject(e.target.error);
+      } else {
+        // Skip count: just update metadata, preserve existing tweetCount
         const record = {
           handle: user.handle,
           displayName: user.displayName || existing.displayName || '',
           avatarUrl: user.avatarUrl || existing.avatarUrl || '',
           lastSeen: user.lastSeen || existing.lastSeen,
-          tweetCount: countReq.result,
+          tweetCount: existing.tweetCount || 0,
           starred: existing.starred || false,
           notes: existing.notes || ''
         };
         const putReq = userStore.put(record);
         putReq.onsuccess = () => resolve(record);
         putReq.onerror = (e) => reject(e.target.error);
-      };
-      getReq.onerror = (e) => reject(e.target.error);
+      }
     };
-    countReq.onerror = (e) => reject(e.target.error);
+    getReq.onerror = (e) => reject(e.target.error);
   });
 }
 

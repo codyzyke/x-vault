@@ -3,6 +3,7 @@ console.log('[X-Vault] Background service worker loaded at', new Date().toISOStr
 import {
   storeTweet,
   storeUser,
+  adjustUserTweetCount,
   getAllUsers,
   getUser,
   getTweetsByUser,
@@ -39,12 +40,14 @@ async function handleMessage(message) {
 
       const result = await storeTweet(message.tweet);
       if (result.inserted) {
-        const user = await storeUser({
+        // Store user metadata (skipCount=true) then increment count O(1)
+        await storeUser({
           handle: message.tweet.handle,
           displayName: message.tweet.displayName,
           avatarUrl: message.tweet.avatarUrl,
           lastSeen: new Date().toISOString()
-        });
+        }, { skipCount: true });
+        const user = await adjustUserTweetCount(message.tweet.handle, 1);
         const count = await getTweetCount();
         chrome.action.setBadgeText({ text: String(count) });
         chrome.action.setBadgeBackgroundColor({ color: '#1DA1F2' });
@@ -98,9 +101,9 @@ async function handleMessage(message) {
 
     case 'DELETE_TWEET': {
       await deleteTweet(message.tweetId);
-      // Update the user's tweet count
+      // Decrement the user's tweet count O(1)
       if (message.handle) {
-        await storeUser({ handle: message.handle });
+        await adjustUserTweetCount(message.handle, -1);
       }
       const count = await getTweetCount();
       chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
