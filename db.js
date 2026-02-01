@@ -270,9 +270,15 @@ export async function storeTweet(tweet) {
     req.onerror = (e) => reject(e.target.error);
   });
 
-  // Index the tweet text for search
-  const words = tokenizeText(`${tweet.fullText} ${tweet.handle} ${tweet.displayName}`);
-  await indexTweetWords(db, tweet.tweetId, words);
+  // Index the tweet text for search (non-blocking - don't fail if indexing fails)
+  try {
+    if (db.objectStoreNames.contains('searchIndex')) {
+      const words = tokenizeText(`${tweet.fullText} ${tweet.handle} ${tweet.displayName}`);
+      await indexTweetWords(db, tweet.tweetId, words);
+    }
+  } catch (e) {
+    console.warn('[X-Vault] Search indexing failed (non-critical):', e);
+  }
 
   return { inserted: true };
 }
@@ -296,10 +302,14 @@ export async function deleteTweet(tweetId) {
     req.onerror = (e) => reject(e.target.error);
   });
 
-  // Remove from search index
-  if (tweet) {
-    const words = tokenizeText(`${tweet.fullText} ${tweet.handle} ${tweet.displayName}`);
-    await unindexTweetWords(db, tweetId, words);
+  // Remove from search index (non-blocking)
+  try {
+    if (tweet && db.objectStoreNames.contains('searchIndex')) {
+      const words = tokenizeText(`${tweet.fullText} ${tweet.handle} ${tweet.displayName}`);
+      await unindexTweetWords(db, tweetId, words);
+    }
+  } catch (e) {
+    console.warn('[X-Vault] Search unindexing failed (non-critical):', e);
   }
 }
 
@@ -447,37 +457,19 @@ export async function getAllUsers() {
     const tx = db.transaction('users', 'readonly');
     const store = tx.objectStore('users');
 
-    // Try to use index for sorted retrieval (starred desc, tweetCount desc)
-    // Index key: [starred (boolean), tweetCount (number)]
-    // 'prev' direction gives us: true before false, high numbers before low
-    if (store.indexNames.contains('bySortOrder')) {
-      const index = store.index('bySortOrder');
-      const results = [];
-      const req = index.openCursor(null, 'prev');
-
-      req.onsuccess = (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-          results.push(cursor.value);
-          cursor.continue();
-        } else {
-          resolve(results);
-        }
-      };
-      req.onerror = (e) => reject(e.target.error);
-    } else {
-      // Fallback: load all and sort in memory (for upgrades in progress)
-      const req = store.getAll();
-      req.onsuccess = () => {
-        const users = req.result.sort((a, b) => {
-          if (a.starred && !b.starred) return -1;
-          if (!a.starred && b.starred) return 1;
-          return (b.tweetCount || 0) - (a.tweetCount || 0);
-        });
-        resolve(users);
-      };
-      req.onerror = (e) => reject(e.target.error);
-    }
+    // Use getAll with in-memory sort for reliability
+    // (existing records may not have all indexed fields populated)
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const users = req.result.sort((a, b) => {
+        // Starred first, then by tweet count
+        if (a.starred && !b.starred) return -1;
+        if (!a.starred && b.starred) return 1;
+        return (b.tweetCount || 0) - (a.tweetCount || 0);
+      });
+      resolve(users);
+    };
+    req.onerror = (e) => reject(e.target.error);
   });
 }
 
