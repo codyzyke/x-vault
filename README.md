@@ -2,12 +2,11 @@
 
 Chrome extension that passively captures tweets as you browse Twitter/X. Store them locally, search across them, and export to LLMs.
 
-<video src="demo.mp4" controls="controls" style="max-width: 100%;">
-</video>
+[![Watch the demo](demo-thumbnail.jpg)](demo.mp4)
 
 ## What it does
 
-- Captures tweets from any profile you visit — no API keys needed
+- Captures tweets from any profile
 - Stores everything locally in your browser (IndexedDB)
 - Fast search with inverted index
 - One-click export with LLM prompt templates ("Summarize thinking", "Key beliefs", etc.)
