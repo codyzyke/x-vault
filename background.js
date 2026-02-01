@@ -1,3 +1,5 @@
+console.log('[TwitterScrape] Background service worker loaded at', new Date().toISOString());
+
 import {
   storeTweet,
   storeUser,
@@ -50,7 +52,7 @@ async function handleMessage(message) {
           tweet: message.tweet,
           totalCount: count,
           user
-        }).catch(() => {});
+        }).catch(() => { });
       }
       return result;
     }
@@ -79,10 +81,17 @@ async function handleMessage(message) {
       return await getAllTweetsForUser(message.handle);
 
     case 'DELETE_USER': {
-      await deleteUserAndTweets(message.handle);
-      const count = await getTweetCount();
-      chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
-      return { deleted: true, totalCount: count };
+      console.log('[TwitterScrape] DELETE_USER called for:', message.handle);
+      try {
+        await deleteUserAndTweets(message.handle);
+        const count = await getTweetCount();
+        chrome.action.setBadgeText({ text: count > 0 ? String(count) : '' });
+        console.log('[TwitterScrape] DELETE_USER success, remaining tweets:', count);
+        return { deleted: true, totalCount: count };
+      } catch (err) {
+        console.error('[TwitterScrape] DELETE_USER failed:', err);
+        return { error: err.message, deleted: false };
+      }
     }
 
     case 'DELETE_TWEET': {
@@ -124,6 +133,7 @@ async function handleMessage(message) {
       return await updateUserNotes(message.handle, message.notes);
 
     default:
+      console.error('[TwitterScrape] Unknown message type received:', message.type, message);
       return { error: 'Unknown message type' };
   }
 }

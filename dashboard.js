@@ -198,24 +198,37 @@ document.getElementById('user-notes').addEventListener('input', (e) => {
 // ==================== Delete / Block (immediate) ====================
 
 async function deleteUser(handle) {
-  await sendMessage({ type: 'DELETE_USER', handle });
-  showToast(`Deleted @${handle}`);
-
-  const userEl = document.querySelector(`#user-list [data-handle="${handle}"]`);
-  if (userEl) userEl.remove();
-
-  await refreshCounts();
-
-  if (selectedUser === handle) {
-    const users = await sendMessage({ type: 'GET_USERS' });
-    if (users && users.length > 0) {
-      renderUserList(users);
-      selectUser(users[0].handle);
-    } else {
-      hideUserContext();
-      renderUserList([]);
-      renderTweetList([]);
+  try {
+    const result = await sendMessage({ type: 'DELETE_USER', handle });
+    // Check if delete succeeded - prioritize deleted:true over any error
+    if (!result || (result.error && !result.deleted)) {
+      console.error('[Dashboard] Delete user error:', result?.error || 'No response');
+      showToast(`Error deleting @${handle}`);
+      return false;
     }
+    showToast(`Deleted @${handle}`);
+
+    const userEl = document.querySelector(`#user-list [data-handle="${handle}"]`);
+    if (userEl) userEl.remove();
+
+    await refreshCounts();
+
+    if (selectedUser === handle) {
+      const users = await sendMessage({ type: 'GET_USERS' });
+      if (users && users.length > 0) {
+        renderUserList(users);
+        selectUser(users[0].handle);
+      } else {
+        hideUserContext();
+        renderUserList([]);
+        renderTweetList([]);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error('[Dashboard] Delete user exception:', err);
+    showToast(`Error deleting @${handle}`);
+    return false;
   }
 }
 
@@ -511,22 +524,45 @@ document.getElementById('custom-prompt-copy').addEventListener('click', async ()
 
 document.getElementById('cleanup-btn').addEventListener('click', async () => {
   const threshold = parseInt(document.getElementById('cleanup-threshold').value, 10);
-  if (isNaN(threshold) || threshold < 1) return;
+  if (isNaN(threshold) || threshold < 1) {
+    showToast('Invalid threshold value');
+    return;
+  }
 
   const users = await sendMessage({ type: 'GET_USERS' });
-  const toRemove = (users || []).filter(u => (u.tweetCount || 0) <= threshold);
+  if (!users || !Array.isArray(users)) {
+    showToast('Failed to get users');
+    return;
+  }
+
+  // Filter users where tweetCount is less than or equal to threshold
+  // tweetCount might be undefined, null, or 0 - treat all as 0
+  const toRemove = users.filter(u => {
+    const count = typeof u.tweetCount === 'number' ? u.tweetCount : 0;
+    return count <= threshold;
+  });
+
+  console.log('[Dashboard] Cleanup: threshold =', threshold, ', users to remove =', toRemove.length, toRemove.map(u => `@${u.handle}(${u.tweetCount})`));
 
   if (toRemove.length === 0) {
     showToast('No users to remove');
     return;
   }
 
-  // Delete all from DB first
+  // Delete all from DB - use Promise.all for better performance
+  let deletedCount = 0;
   for (const user of toRemove) {
-    await sendMessage({ type: 'DELETE_USER', handle: user.handle });
+    try {
+      const result = await sendMessage({ type: 'DELETE_USER', handle: user.handle });
+      if (result && !result.error) {
+        deletedCount++;
+      }
+    } catch (err) {
+      console.error('[Dashboard] Failed to delete user:', user.handle, err);
+    }
   }
 
-  showToast(`Removed ${toRemove.length} user${toRemove.length !== 1 ? 's' : ''}`);
+  showToast(`Removed ${deletedCount} user${deletedCount !== 1 ? 's' : ''}`);
 
   await refreshCounts();
   const remaining = await sendMessage({ type: 'GET_USERS' });
