@@ -28,6 +28,10 @@
           <span class="nav-icon">🔍</span>
           <span class="nav-label">Search</span>
         </li>
+        <li class="nav-item" data-view="ai">
+          <span class="nav-icon">✨</span>
+          <span class="nav-label">AI Replies</span>
+        </li>
       </ul>
 
       <div class="sidebar-footer">
@@ -149,6 +153,72 @@
         <section id="search-results">
           <div class="empty-state">Enter a search term to find tweets.</div>
         </section>
+      </div>
+
+      <!-- AI REPLIES VIEW -->
+      <div id="view-ai" class="view">
+        <div class="view-header">
+          <h2>AI Reply Generator</h2>
+          <button id="ai-settings-toggle" class="ctx-btn">API Settings</button>
+        </div>
+
+        <!-- API Settings (collapsible) -->
+        <div id="ai-settings-panel" class="hidden">
+          <div class="ai-settings-row">
+            <label for="ai-api-key">API Key</label>
+            <input type="password" id="ai-api-key" placeholder="sk-...">
+          </div>
+          <div class="ai-settings-row">
+            <label for="ai-provider">Provider</label>
+            <select id="ai-provider">
+              <option value="openai">OpenAI</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+          </div>
+          <div class="ai-settings-row">
+            <label for="ai-model">Model</label>
+            <input type="text" id="ai-model" placeholder="gpt-4o-mini" value="gpt-4o-mini">
+          </div>
+          <div class="ai-settings-row">
+            <label for="ai-system-prompt">System Prompt</label>
+            <textarea id="ai-system-prompt" rows="3" placeholder="Instructions for the AI..."></textarea>
+          </div>
+          <button id="ai-save-settings" class="ai-action-btn">Save Settings</button>
+        </div>
+
+        <div class="ai-layout">
+          <!-- Left: Tweet browser -->
+          <div id="ai-tweet-panel">
+            <div class="ai-panel-header">
+              <h3>Select Tweets</h3>
+              <div class="ai-tweet-controls">
+                <input type="text" id="ai-tweet-search" placeholder="Search tweets...">
+                <button id="ai-load-recent" class="ai-small-btn">Recent</button>
+              </div>
+            </div>
+            <div id="ai-tweet-list">
+              <div class="empty-state">Load recent tweets or search to find tweets for inspiration.</div>
+            </div>
+          </div>
+
+          <!-- Right: AI prompt & results panel -->
+          <div id="ai-prompt-panel">
+            <div class="ai-selected-header">
+              <h3>Selected (<span id="ai-selected-count">0</span>)</h3>
+              <button id="ai-clear-selected" class="ai-small-btn">Clear</button>
+            </div>
+            <div id="ai-selected-tweets"></div>
+
+            <div class="ai-prompt-area">
+              <textarea id="ai-prompt-input" placeholder="Write your custom prompt... e.g. 'Generate witty replies to these tweets' or 'Create thoughtful responses that add value'" rows="3"></textarea>
+              <button id="ai-generate-btn" class="ai-generate-btn">Generate Replies</button>
+            </div>
+
+            <div id="ai-results">
+              <div class="empty-state">Select tweets and click Generate to get AI reply suggestions.</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Footer (for users view) -->

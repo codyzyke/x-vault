@@ -918,6 +918,8 @@ function showView(viewName) {
     loadUsersView();
   } else if (viewName === 'search') {
     document.getElementById('search-input').focus();
+  } else if (viewName === 'ai') {
+    loadAIView();
   }
 }
 
@@ -1078,6 +1080,398 @@ document.getElementById('search-input').addEventListener('input', (e) => {
 });
 
 let searchDebounce;
+
+// ==================== AI Replies View ====================
+
+let aiSelectedTweets = [];
+let aiSearchDebounce = null;
+
+// Toggle settings panel
+document.getElementById('ai-settings-toggle').addEventListener('click', () => {
+  document.getElementById('ai-settings-panel').classList.toggle('hidden');
+});
+
+// Save AI settings
+document.getElementById('ai-save-settings').addEventListener('click', async () => {
+  const apiKey = document.getElementById('ai-api-key').value.trim();
+  const provider = document.getElementById('ai-provider').value;
+  const model = document.getElementById('ai-model').value.trim() || 'gpt-4o-mini';
+  const systemPrompt = document.getElementById('ai-system-prompt').value.trim();
+
+  await sendMessage({
+    type: 'SET_AI_SETTINGS',
+    settings: { apiKey, provider, model, systemPrompt }
+  });
+
+  document.getElementById('ai-settings-panel').classList.add('hidden');
+  showToast('AI settings saved');
+});
+
+// Load AI settings into form
+async function loadAISettings() {
+  const settings = await sendMessage({ type: 'GET_AI_SETTINGS' });
+  if (settings) {
+    document.getElementById('ai-api-key').value = settings.apiKey || '';
+    document.getElementById('ai-provider').value = settings.provider || 'openai';
+    document.getElementById('ai-model').value = settings.model || 'gpt-4o-mini';
+    document.getElementById('ai-system-prompt').value = settings.systemPrompt || '';
+  }
+}
+
+// Load recent tweets into AI tweet browser
+document.getElementById('ai-load-recent').addEventListener('click', async () => {
+  const tweets = await sendMessage({ type: 'GET_RECENT_TWEETS', limit: 50 });
+  renderAITweetList(tweets || []);
+});
+
+// Search tweets in AI view
+document.getElementById('ai-tweet-search').addEventListener('input', (e) => {
+  clearTimeout(aiSearchDebounce);
+  aiSearchDebounce = setTimeout(async () => {
+    const query = e.target.value.trim();
+    if (query.length < 2) {
+      // Load recent if search cleared
+      const tweets = await sendMessage({ type: 'GET_RECENT_TWEETS', limit: 50 });
+      renderAITweetList(tweets || []);
+      return;
+    }
+    const results = await sendMessage({ type: 'SEARCH_TWEETS', query, limit: 50 });
+    renderAITweetList(results || []);
+  }, 300);
+});
+
+function renderAITweetList(tweets) {
+  const container = document.getElementById('ai-tweet-list');
+  container.innerHTML = '';
+
+  if (tweets.length === 0) {
+    container.innerHTML = '<div class="empty-state">No tweets found.</div>';
+    return;
+  }
+
+  for (const tweet of tweets) {
+    const item = document.createElement('div');
+    item.className = 'ai-tweet-item';
+    if (aiSelectedTweets.some(t => t.tweetId === tweet.tweetId)) {
+      item.classList.add('selected');
+    }
+
+    const avatarHtml = tweet.avatarUrl
+      ? `<img class="ai-tweet-item-avatar" src="${escapeHtml(tweet.avatarUrl)}" alt="@${escapeHtml(tweet.handle)}">`
+      : `<div class="ai-tweet-item-avatar-placeholder">${escapeHtml(tweet.handle.charAt(0).toUpperCase())}</div>`;
+
+    item.innerHTML = `
+      ${avatarHtml}
+      <div class="ai-tweet-item-content">
+        <div class="ai-tweet-item-header">
+          <span class="ai-tweet-item-name">${escapeHtml(tweet.displayName)}</span>
+          <span class="ai-tweet-item-handle">@${escapeHtml(tweet.handle)}</span>
+        </div>
+        <div class="ai-tweet-item-text">${escapeHtml(tweet.fullText || '')}</div>
+      </div>
+      <div class="ai-tweet-item-check"></div>
+    `;
+
+    item.addEventListener('click', () => toggleAITweetSelection(tweet, item));
+    container.appendChild(item);
+  }
+}
+
+function toggleAITweetSelection(tweet, itemEl) {
+  const idx = aiSelectedTweets.findIndex(t => t.tweetId === tweet.tweetId);
+  if (idx >= 0) {
+    aiSelectedTweets.splice(idx, 1);
+    itemEl.classList.remove('selected');
+  } else {
+    aiSelectedTweets.push(tweet);
+    itemEl.classList.add('selected');
+  }
+  updateAISelectedDisplay();
+}
+
+function updateAISelectedDisplay() {
+  document.getElementById('ai-selected-count').textContent = aiSelectedTweets.length;
+
+  const container = document.getElementById('ai-selected-tweets');
+  container.innerHTML = '';
+
+  for (const tweet of aiSelectedTweets) {
+    const chip = document.createElement('span');
+    chip.className = 'ai-selected-chip';
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'ai-selected-chip-text';
+    const preview = tweet.fullText
+      ? `@${tweet.handle}: ${tweet.fullText.slice(0, 60)}${tweet.fullText.length > 60 ? '...' : ''}`
+      : `@${tweet.handle}`;
+    textSpan.textContent = preview;
+    chip.appendChild(textSpan);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '\u00d7';
+    removeBtn.addEventListener('click', () => {
+      aiSelectedTweets = aiSelectedTweets.filter(t => t.tweetId !== tweet.tweetId);
+      updateAISelectedDisplay();
+      // Update list item visual
+      const listItem = document.querySelector(`.ai-tweet-item.selected`);
+      document.querySelectorAll('.ai-tweet-item').forEach(el => {
+        const text = el.querySelector('.ai-tweet-item-text')?.textContent;
+        if (text === (tweet.fullText || '') && !aiSelectedTweets.some(t => (t.fullText || '') === text)) {
+          el.classList.remove('selected');
+        }
+      });
+    });
+    chip.appendChild(removeBtn);
+    container.appendChild(chip);
+  }
+}
+
+// Clear selected
+document.getElementById('ai-clear-selected').addEventListener('click', () => {
+  aiSelectedTweets = [];
+  updateAISelectedDisplay();
+  document.querySelectorAll('.ai-tweet-item.selected').forEach(el => el.classList.remove('selected'));
+});
+
+// Generate replies
+document.getElementById('ai-generate-btn').addEventListener('click', async () => {
+  if (aiSelectedTweets.length === 0) {
+    showToast('Select at least one tweet');
+    return;
+  }
+
+  const settings = await sendMessage({ type: 'GET_AI_SETTINGS' });
+  if (!settings?.apiKey) {
+    showToast('Set your API key in AI Settings first');
+    document.getElementById('ai-settings-panel').classList.remove('hidden');
+    return;
+  }
+
+  const customPrompt = document.getElementById('ai-prompt-input').value.trim();
+  const btn = document.getElementById('ai-generate-btn');
+  const resultsContainer = document.getElementById('ai-results');
+
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.textContent = 'Generating...';
+  resultsContainer.innerHTML = '<div class="empty-state">Generating reply ideas...</div>';
+
+  try {
+    const tweetsContext = aiSelectedTweets.map((t, i) =>
+      `[Tweet ${i + 1}] @${t.handle} (${t.displayName}):\n${t.fullText || '(no text)'}`
+    ).join('\n\n---\n\n');
+
+    const userPrompt = customPrompt
+      ? `${customPrompt}\n\nHere are the tweets:\n\n${tweetsContext}`
+      : `Generate engaging reply ideas for each of these tweets:\n\n${tweetsContext}`;
+
+    const systemPrompt = settings.systemPrompt ||
+      'You are a witty and thoughtful Twitter/X user. Generate reply ideas for the given tweets. For each tweet, provide 2-3 possible reply options that are engaging, relevant, and match different tones (e.g., insightful, humorous, agreeable, challenging). Keep replies concise and tweet-length (under 280 characters). Format your response as JSON: [{"tweetIndex": 1, "replies": ["reply1", "reply2", "reply3"]}, ...]';
+
+    const provider = settings.provider || 'openai';
+    let apiUrl, headers, body;
+
+    if (provider === 'openrouter') {
+      apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.apiKey}`
+      };
+    } else {
+      apiUrl = 'https://api.openai.com/v1/chat/completions';
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.apiKey}`
+      };
+    }
+
+    body = JSON.stringify({
+      model: settings.model || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt + '\n\nIMPORTANT: Always respond with valid JSON array format: [{"tweetIndex": 1, "replies": ["reply1", "reply2"]}, ...]' },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.8,
+      max_tokens: 2000
+    });
+
+    const response = await fetch(apiUrl, { method: 'POST', headers, body });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+
+    renderAIResults(content);
+  } catch (err) {
+    console.error('[X-Vault] AI generation failed:', err);
+    resultsContainer.innerHTML = `<div class="ai-error">Error: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.textContent = 'Generate Replies';
+  }
+});
+
+function renderAIResults(content) {
+  const container = document.getElementById('ai-results');
+  container.innerHTML = '';
+
+  // Try to parse as JSON first
+  let parsed = null;
+  try {
+    // Extract JSON from markdown code blocks if wrapped
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
+    parsed = JSON.parse(jsonMatch[1].trim());
+  } catch (e) {
+    // Fallback: render as plain text with copy buttons
+    renderAIResultsPlainText(container, content);
+    return;
+  }
+
+  if (Array.isArray(parsed)) {
+    for (const item of parsed) {
+      const tweetIdx = (item.tweetIndex || 1) - 1;
+      const tweet = aiSelectedTweets[tweetIdx];
+
+      const card = document.createElement('div');
+      card.className = 'ai-result-card';
+
+      if (tweet) {
+        const ref = document.createElement('div');
+        ref.className = 'ai-result-tweet-ref';
+        ref.innerHTML = `<strong>@${escapeHtml(tweet.handle)}</strong>: ${escapeHtml(tweet.fullText || '')}`;
+        card.appendChild(ref);
+      }
+
+      const replies = item.replies || [];
+      for (const reply of replies) {
+        const option = document.createElement('div');
+        option.className = 'ai-reply-option';
+
+        const text = document.createElement('div');
+        text.className = 'ai-reply-text';
+        text.textContent = reply;
+        option.appendChild(text);
+
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'ai-copy-btn';
+        copyBtn.textContent = 'Copy';
+        copyBtn.addEventListener('click', async () => {
+          await navigator.clipboard.writeText(reply);
+          copyBtn.textContent = 'Copied!';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.textContent = 'Copy';
+            copyBtn.classList.remove('copied');
+          }, 1500);
+        });
+        option.appendChild(copyBtn);
+        card.appendChild(option);
+      }
+
+      container.appendChild(card);
+    }
+  } else {
+    renderAIResultsPlainText(container, content);
+  }
+}
+
+function renderAIResultsPlainText(container, content) {
+  // Split by lines that look like replies (starting with - or numbered)
+  const lines = content.split('\n').filter(l => l.trim());
+  let currentCard = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Detect tweet reference headers (e.g. "Tweet 1:" or "[Tweet 1]" or "**@handle**")
+    if (/^(\[?tweet\s*\d+\]?|#{1,3}\s|.*@\w+.*:)/i.test(trimmed)) {
+      currentCard = document.createElement('div');
+      currentCard.className = 'ai-result-card';
+      const ref = document.createElement('div');
+      ref.className = 'ai-result-tweet-ref';
+      ref.textContent = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, '');
+      currentCard.appendChild(ref);
+      container.appendChild(currentCard);
+      continue;
+    }
+
+    // Reply lines (starting with - or number.)
+    const replyMatch = trimmed.match(/^[-*]\s+(.+)/) || trimmed.match(/^\d+[.)]\s+(.+)/);
+    if (replyMatch) {
+      if (!currentCard) {
+        currentCard = document.createElement('div');
+        currentCard.className = 'ai-result-card';
+        container.appendChild(currentCard);
+      }
+
+      const option = document.createElement('div');
+      option.className = 'ai-reply-option';
+
+      const text = document.createElement('div');
+      text.className = 'ai-reply-text';
+      text.textContent = replyMatch[1].replace(/^["']|["']$/g, '');
+      option.appendChild(text);
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'ai-copy-btn';
+      copyBtn.textContent = 'Copy';
+      copyBtn.addEventListener('click', async () => {
+        const replyText = replyMatch[1].replace(/^["']|["']$/g, '');
+        await navigator.clipboard.writeText(replyText);
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy';
+          copyBtn.classList.remove('copied');
+        }, 1500);
+      });
+      option.appendChild(copyBtn);
+      currentCard.appendChild(option);
+    }
+  }
+
+  // If nothing was parsed, show raw content
+  if (container.children.length === 0) {
+    const card = document.createElement('div');
+    card.className = 'ai-result-card';
+
+    const option = document.createElement('div');
+    option.className = 'ai-reply-option';
+
+    const text = document.createElement('div');
+    text.className = 'ai-reply-text';
+    text.textContent = content;
+    option.appendChild(text);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'ai-copy-btn';
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(content);
+      copyBtn.textContent = 'Copied!';
+      copyBtn.classList.add('copied');
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy';
+        copyBtn.classList.remove('copied');
+      }, 1500);
+    });
+    option.appendChild(copyBtn);
+    card.appendChild(option);
+    container.appendChild(card);
+  }
+}
+
+async function loadAIView() {
+  await loadAISettings();
+  // Auto-load recent tweets
+  const tweets = await sendMessage({ type: 'GET_RECENT_TWEETS', limit: 50 });
+  renderAITweetList(tweets || []);
+}
 
 // ==================== Init ====================
 

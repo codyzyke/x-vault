@@ -10,7 +10,9 @@
   ],
   "host_permissions": [
     "*://twitter.com/*",
-    "*://x.com/*"
+    "*://x.com/*",
+    "https://api.openai.com/*",
+    "https://openrouter.ai/*"
   ],
   "background": {
     "service_worker": "background.js",

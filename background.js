@@ -30,6 +30,8 @@ import {
   exportAllData,
   importAllData,
   getRecentTweets,
+  getAISettings,
+  setAISettings
   storeBlogPost,
   getBlogPostsByUser,
   getBlogPost,
@@ -189,6 +191,13 @@ async function handleMessage(message) {
 
     case 'SET_HOME_FEED_SETTINGS':
       await setHomeFeedSettings(message.settings);
+      return { success: true };
+
+    case 'GET_AI_SETTINGS':
+      return await getAISettings();
+
+    case 'SET_AI_SETTINGS':
+      await setAISettings(message.settings);
       return { success: true };
 
     case 'EXPORT_DATABASE':

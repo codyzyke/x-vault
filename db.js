@@ -180,6 +180,25 @@ export async function setHomeFeedSettings(settings) {
   });
 }
 
+// --- AI Settings ---
+
+const DEFAULT_AI_SETTINGS = {
+  apiKey: '',
+  model: 'gpt-4o-mini',
+  systemPrompt: 'You are a witty and thoughtful Twitter/X user. Generate reply ideas for the given tweets. For each tweet, provide 2-3 possible reply options that are engaging, relevant, and match different tones (e.g., insightful, humorous, agreeable, challenging). Keep replies concise and tweet-length (under 280 characters). Format each reply on its own line prefixed with a dash.'
+};
+
+export async function getAISettings() {
+  return getSetting('aiSettings', DEFAULT_AI_SETTINGS);
+}
+
+export async function setAISettings(settings) {
+  await setSetting('aiSettings', {
+    ...DEFAULT_AI_SETTINGS,
+    ...settings
+  });
+}
+
 // Legacy compatibility
 export async function getCaptureFromHome() {
   const settings = await getHomeFeedSettings();
