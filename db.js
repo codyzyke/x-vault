@@ -1,5 +1,5 @@
 const DB_NAME = 'TwitterScrapeDB';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 let dbInstance = null;
 
@@ -72,6 +72,13 @@ export function openDB() {
         if (tweetStore && !tweetStore.indexNames.contains('byCapturedAt')) {
           tweetStore.createIndex('byCapturedAt', 'capturedAt', { unique: false });
         }
+      }
+
+      // V7: Add blogPosts object store for user blog posts
+      if (!db.objectStoreNames.contains('blogPosts')) {
+        const blogStore = db.createObjectStore('blogPosts', { keyPath: 'postId' });
+        blogStore.createIndex('byUser', 'handle', { unique: false });
+        blogStore.createIndex('byUserAndTime', ['handle', 'createdAt'], { unique: false });
       }
     };
 
@@ -464,15 +471,39 @@ export async function deleteUserAndTweets(handle) {
     req.onerror = (e) => reject(e.target.error);
   });
 
-  // Then delete user + all tweets in a write transaction
+  // Collect all blog post IDs for this user
+  const postIds = await new Promise((resolve, reject) => {
+    if (!db.objectStoreNames.contains('blogPosts')) {
+      resolve([]);
+      return;
+    }
+    const tx = db.transaction('blogPosts', 'readonly');
+    const index = tx.objectStore('blogPosts').index('byUser');
+    const req = index.getAllKeys(IDBKeyRange.only(handle));
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+
+  // Then delete user + all tweets + all blog posts in a write transaction
+  const stores = ['users', 'tweets'];
+  if (db.objectStoreNames.contains('blogPosts')) {
+    stores.push('blogPosts');
+  }
+
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(['users', 'tweets'], 'readwrite');
+    const tx = db.transaction(stores, 'readwrite');
     tx.objectStore('users').delete(handle);
     const tweetStore = tx.objectStore('tweets');
     for (const id of tweetIds) {
       tweetStore.delete(id);
     }
-    tx.oncomplete = () => resolve({ deletedTweets: tweetIds.length });
+    if (db.objectStoreNames.contains('blogPosts')) {
+      const postStore = tx.objectStore('blogPosts');
+      for (const id of postIds) {
+        postStore.delete(id);
+      }
+    }
+    tx.oncomplete = () => resolve({ deletedTweets: tweetIds.length, deletedPosts: postIds.length });
     tx.onerror = (e) => reject(e.target.error);
   });
 }
@@ -703,6 +734,133 @@ export async function getAllTweetsForUser(handle) {
   return getTweetsByUser(handle, { limit: Infinity, offset: 0 });
 }
 
+// --- Blog Posts ---
+
+// Generate unique post ID
+function generatePostId() {
+  return `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+export async function storeBlogPost(post) {
+  const db = await openDB();
+  const now = new Date().toISOString();
+
+  const record = {
+    postId: post.postId || generatePostId(),
+    handle: post.handle,
+    title: post.title || '',
+    content: post.content || '',
+    createdAt: post.createdAt || now,
+    updatedAt: now
+  };
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blogPosts', 'readwrite');
+    const store = tx.objectStore('blogPosts');
+    const req = store.put(record);
+    req.onsuccess = () => resolve(record);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+export async function getBlogPostsByUser(handle) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blogPosts', 'readonly');
+    const store = tx.objectStore('blogPosts');
+    const index = store.index('byUserAndTime');
+
+    const range = IDBKeyRange.bound(
+      [handle, ''],
+      [handle, '\uffff']
+    );
+
+    const results = [];
+    const req = index.openCursor(range, 'prev'); // newest first
+
+    req.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (!cursor) {
+        resolve(results);
+        return;
+      }
+      results.push(cursor.value);
+      cursor.continue();
+    };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+export async function getBlogPost(postId) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blogPosts', 'readonly');
+    const req = tx.objectStore('blogPosts').get(postId);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+export async function updateBlogPost(postId, updates) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blogPosts', 'readwrite');
+    const store = tx.objectStore('blogPosts');
+    const getReq = store.get(postId);
+
+    getReq.onsuccess = () => {
+      if (!getReq.result) {
+        resolve(null);
+        return;
+      }
+      const record = {
+        ...getReq.result,
+        ...updates,
+        postId, // ensure postId is not overwritten
+        updatedAt: new Date().toISOString()
+      };
+      const putReq = store.put(record);
+      putReq.onsuccess = () => resolve(record);
+      putReq.onerror = (e) => reject(e.target.error);
+    };
+    getReq.onerror = (e) => reject(e.target.error);
+  });
+}
+
+export async function deleteBlogPost(postId) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blogPosts', 'readwrite');
+    const req = tx.objectStore('blogPosts').delete(postId);
+    req.onsuccess = () => resolve({ deleted: true });
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+export async function deleteBlogPostsByUser(handle) {
+  const db = await openDB();
+
+  // First get all post IDs for this user
+  const postIds = await new Promise((resolve, reject) => {
+    const tx = db.transaction('blogPosts', 'readonly');
+    const index = tx.objectStore('blogPosts').index('byUser');
+    const req = index.getAllKeys(IDBKeyRange.only(handle));
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+
+  // Delete all posts
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blogPosts', 'readwrite');
+    const store = tx.objectStore('blogPosts');
+    for (const id of postIds) {
+      store.delete(id);
+    }
+    tx.oncomplete = () => resolve({ deletedPosts: postIds.length });
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
 // --- Full Database Export/Import ---
 
 export async function exportAllData() {
@@ -740,13 +898,26 @@ export async function exportAllData() {
     req.onerror = (e) => reject(e.target.error);
   });
 
+  // Get all blog posts
+  const blogPosts = await new Promise((resolve, reject) => {
+    if (!db.objectStoreNames.contains('blogPosts')) {
+      resolve([]);
+      return;
+    }
+    const tx = db.transaction('blogPosts', 'readonly');
+    const req = tx.objectStore('blogPosts').getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+
   return {
     version: DB_VERSION,
     exportedAt: new Date().toISOString(),
     tweets,
     users,
     blockedUsers,
-    settings
+    settings,
+    blogPosts
   };
 }
 
@@ -762,18 +933,26 @@ export async function importAllData(data, { merge = true } = {}) {
   const users = data.users || [];
   const blockedUsers = data.blockedUsers || [];
   const settings = data.settings || [];
+  const blogPosts = data.blogPosts || [];
+
+  const stores = ['tweets', 'users', 'blockedUsers', 'settings'];
+  if (db.objectStoreNames.contains('blogPosts')) {
+    stores.push('blogPosts');
+  }
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(['tweets', 'users', 'blockedUsers', 'settings'], 'readwrite');
+    const tx = db.transaction(stores, 'readwrite');
     const tweetStore = tx.objectStore('tweets');
     const userStore = tx.objectStore('users');
     const blockedStore = tx.objectStore('blockedUsers');
     const settingsStore = tx.objectStore('settings');
+    const blogStore = db.objectStoreNames.contains('blogPosts') ? tx.objectStore('blogPosts') : null;
 
     let importedTweets = 0;
     let importedUsers = 0;
     let importedBlocked = 0;
     let importedSettings = 0;
+    let importedBlogPosts = 0;
 
     // Clear existing data if not merging
     if (!merge) {
@@ -781,6 +960,7 @@ export async function importAllData(data, { merge = true } = {}) {
       userStore.clear();
       blockedStore.clear();
       settingsStore.clear();
+      if (blogStore) blogStore.clear();
     }
 
     // Import tweets
@@ -860,11 +1040,30 @@ export async function importAllData(data, { merge = true } = {}) {
       }
     }
 
+    // Import blog posts
+    if (blogStore && blogPosts.length > 0) {
+      for (const post of blogPosts) {
+        if (merge) {
+          const getReq = blogStore.get(post.postId);
+          getReq.onsuccess = () => {
+            if (!getReq.result) {
+              blogStore.put(post);
+              importedBlogPosts++;
+            }
+          };
+        } else {
+          blogStore.put(post);
+          importedBlogPosts++;
+        }
+      }
+    }
+
     tx.oncomplete = () => resolve({
       tweets: merge ? importedTweets : tweets.length,
       users: merge ? importedUsers : users.length,
       blockedUsers: merge ? importedBlocked : blockedUsers.length,
-      settings: merge ? importedSettings : settings.length
+      settings: merge ? importedSettings : settings.length,
+      blogPosts: merge ? importedBlogPosts : blogPosts.length
     });
     tx.onerror = (e) => reject(e.target.error);
   });

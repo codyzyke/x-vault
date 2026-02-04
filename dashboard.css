@@ -1000,3 +1000,234 @@ body {
   z-index: 300;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
+
+/* Blog Posts Section */
+#user-blog-posts-area {
+  margin-top: 12px;
+  border-top: 1px solid #e1e8ed;
+  padding-top: 12px;
+}
+
+#blog-posts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.blog-posts-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #14171a;
+}
+
+#add-blog-post-btn {
+  padding: 4px 12px;
+  border: 1px solid #1DA1F2;
+  border-radius: 14px;
+  background: #fff;
+  color: #1DA1F2;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+#add-blog-post-btn:hover {
+  background: #1DA1F2;
+  color: #fff;
+}
+
+#blog-posts-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.blog-posts-empty {
+  font-size: 12px;
+  color: #657786;
+  font-style: italic;
+}
+
+.blog-post-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #f5f8fa;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.blog-post-item:hover {
+  background: #e8f5fd;
+}
+
+.blog-post-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.blog-post-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #14171a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blog-post-item-preview {
+  font-size: 11px;
+  color: #657786;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blog-post-item-date {
+  font-size: 10px;
+  color: #aab8c2;
+}
+
+.blog-post-item-edit {
+  padding: 4px 10px;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  color: #657786;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.blog-post-item-edit:hover {
+  border-color: #1DA1F2;
+  color: #1DA1F2;
+}
+
+/* Blog Post Modal */
+#blog-post-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#blog-post-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 560px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+#blog-post-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e1e8ed;
+}
+
+#blog-post-modal-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#blog-post-modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #657786;
+}
+
+#blog-post-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#blog-post-title-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  outline: none;
+}
+
+#blog-post-title-input:focus {
+  border-color: #1DA1F2;
+}
+
+#blog-post-content-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 200px;
+  outline: none;
+  font-family: inherit;
+}
+
+#blog-post-content-input:focus {
+  border-color: #1DA1F2;
+}
+
+#blog-post-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.blog-post-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.blog-post-btn.primary {
+  background: #1DA1F2;
+  color: #fff;
+}
+
+.blog-post-btn.primary:hover {
+  background: #0c8de4;
+}
+
+.blog-post-btn.danger {
+  background: #fff;
+  border: 1px solid #e0245e;
+  color: #e0245e;
+}
+
+.blog-post-btn.danger:hover {
+  background: #e0245e;
+  color: #fff;
+}
