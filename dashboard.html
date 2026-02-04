@@ -102,6 +102,13 @@
               <div id="user-notes-area">
                 <textarea id="user-notes" placeholder="Personal notes about this user..." rows="2"></textarea>
               </div>
+              <div id="user-blog-posts-area">
+                <div id="blog-posts-header">
+                  <span class="blog-posts-label">Blog Posts</span>
+                  <button id="add-blog-post-btn" title="Add new blog post">+ New Post</button>
+                </div>
+                <div id="blog-posts-list"></div>
+              </div>
             </div>
 
             <!-- LLM prompt bar -->
@@ -174,6 +181,24 @@
       <div id="prompt-modal-body">
         <textarea id="custom-prompt-input" placeholder="Type your question about this user..." rows="4"></textarea>
         <button id="custom-prompt-copy">Copy with tweets</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Blog post editor modal -->
+  <div id="blog-post-modal-overlay" class="hidden">
+    <div id="blog-post-modal">
+      <div id="blog-post-modal-header">
+        <h2 id="blog-post-modal-title">New Blog Post</h2>
+        <button id="blog-post-modal-close">&times;</button>
+      </div>
+      <div id="blog-post-modal-body">
+        <input type="text" id="blog-post-title-input" placeholder="Post title (optional)">
+        <textarea id="blog-post-content-input" placeholder="Write your blog post content..." rows="10"></textarea>
+        <div id="blog-post-modal-actions">
+          <button id="blog-post-delete-btn" class="blog-post-btn danger hidden">Delete</button>
+          <button id="blog-post-save-btn" class="blog-post-btn primary">Save Post</button>
+        </div>
       </div>
     </div>
   </div>

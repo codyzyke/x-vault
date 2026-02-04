@@ -29,7 +29,12 @@ import {
   updateUserNotes,
   exportAllData,
   importAllData,
-  getRecentTweets
+  getRecentTweets,
+  storeBlogPost,
+  getBlogPostsByUser,
+  getBlogPost,
+  updateBlogPost,
+  deleteBlogPost
 } from './db.js';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -149,6 +154,22 @@ async function handleMessage(message) {
 
     case 'UPDATE_USER_NOTES':
       return await updateUserNotes(message.handle, message.notes);
+
+    // Blog Posts
+    case 'STORE_BLOG_POST':
+      return await storeBlogPost(message.post);
+
+    case 'GET_BLOG_POSTS_BY_USER':
+      return await getBlogPostsByUser(message.handle);
+
+    case 'GET_BLOG_POST':
+      return await getBlogPost(message.postId);
+
+    case 'UPDATE_BLOG_POST':
+      return await updateBlogPost(message.postId, message.updates);
+
+    case 'DELETE_BLOG_POST':
+      return await deleteBlogPost(message.postId);
 
     case 'OPEN_POPUP': {
       // Open the dashboard in a new tab

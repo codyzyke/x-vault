@@ -5,6 +5,7 @@ let allSelectMode = false;
 let notesDebounce = null;
 let currentView = 'home';
 let currentSort = 'date';
+let editingPostId = null; // Track if editing existing post
 
 let toastTimer = null;
 
@@ -174,6 +175,9 @@ async function showUserContext(handle) {
 
   // Notes
   document.getElementById('user-notes').value = user.notes || '';
+
+  // Blog posts
+  await loadBlogPosts(handle);
 }
 
 function hideUserContext() {
@@ -218,6 +222,134 @@ document.getElementById('user-notes').addEventListener('input', (e) => {
     if (!selectedUser) return;
     await sendMessage({ type: 'UPDATE_USER_NOTES', handle: selectedUser, notes: e.target.value });
   }, 500);
+});
+
+// ==================== Blog Posts ====================
+
+async function loadBlogPosts(handle) {
+  const posts = await sendMessage({ type: 'GET_BLOG_POSTS_BY_USER', handle });
+  renderBlogPostsList(posts || []);
+}
+
+function renderBlogPostsList(posts) {
+  const container = document.getElementById('blog-posts-list');
+  container.innerHTML = '';
+
+  if (posts.length === 0) {
+    container.innerHTML = '<div class="blog-posts-empty">No blog posts yet.</div>';
+    return;
+  }
+
+  for (const post of posts) {
+    const item = document.createElement('div');
+    item.className = 'blog-post-item';
+    item.dataset.postId = post.postId;
+
+    const title = post.title || 'Untitled Post';
+    const preview = post.content ? post.content.substring(0, 80) + (post.content.length > 80 ? '...' : '') : '';
+    const date = new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    item.innerHTML = `
+      <div class="blog-post-item-content">
+        <span class="blog-post-item-title">${escapeHtml(title)}</span>
+        <span class="blog-post-item-preview">${escapeHtml(preview)}</span>
+        <span class="blog-post-item-date">${date}</span>
+      </div>
+      <button class="blog-post-item-edit" title="Edit post">Edit</button>
+    `;
+
+    item.querySelector('.blog-post-item-edit').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openBlogPostModal(post);
+    });
+
+    item.addEventListener('click', () => openBlogPostModal(post));
+    container.appendChild(item);
+  }
+}
+
+function openBlogPostModal(post = null) {
+  editingPostId = post ? post.postId : null;
+
+  const titleEl = document.getElementById('blog-post-modal-title');
+  const titleInput = document.getElementById('blog-post-title-input');
+  const contentInput = document.getElementById('blog-post-content-input');
+  const deleteBtn = document.getElementById('blog-post-delete-btn');
+
+  if (post) {
+    titleEl.textContent = 'Edit Blog Post';
+    titleInput.value = post.title || '';
+    contentInput.value = post.content || '';
+    deleteBtn.classList.remove('hidden');
+  } else {
+    titleEl.textContent = 'New Blog Post';
+    titleInput.value = '';
+    contentInput.value = '';
+    deleteBtn.classList.add('hidden');
+  }
+
+  document.getElementById('blog-post-modal-overlay').classList.remove('hidden');
+  titleInput.focus();
+}
+
+function closeBlogPostModal() {
+  document.getElementById('blog-post-modal-overlay').classList.add('hidden');
+  editingPostId = null;
+}
+
+// Add new post button
+document.getElementById('add-blog-post-btn').addEventListener('click', () => {
+  if (!selectedUser) return;
+  openBlogPostModal();
+});
+
+// Close modal
+document.getElementById('blog-post-modal-close').addEventListener('click', closeBlogPostModal);
+document.getElementById('blog-post-modal-overlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeBlogPostModal();
+});
+
+// Save blog post
+document.getElementById('blog-post-save-btn').addEventListener('click', async () => {
+  if (!selectedUser) return;
+
+  const title = document.getElementById('blog-post-title-input').value.trim();
+  const content = document.getElementById('blog-post-content-input').value.trim();
+
+  if (!content && !title) {
+    showToast('Please enter some content');
+    return;
+  }
+
+  if (editingPostId) {
+    // Update existing post
+    await sendMessage({
+      type: 'UPDATE_BLOG_POST',
+      postId: editingPostId,
+      updates: { title, content }
+    });
+    showToast('Post updated');
+  } else {
+    // Create new post
+    await sendMessage({
+      type: 'STORE_BLOG_POST',
+      post: { handle: selectedUser, title, content }
+    });
+    showToast('Post created');
+  }
+
+  closeBlogPostModal();
+  await loadBlogPosts(selectedUser);
+});
+
+// Delete blog post
+document.getElementById('blog-post-delete-btn').addEventListener('click', async () => {
+  if (!editingPostId) return;
+
+  await sendMessage({ type: 'DELETE_BLOG_POST', postId: editingPostId });
+  showToast('Post deleted');
+  closeBlogPostModal();
+  await loadBlogPosts(selectedUser);
 });
 
 // ==================== Delete / Block (immediate) ====================
